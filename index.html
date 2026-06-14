@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <base href="https://cdn.jsdelivr.net/gh/Usonul/Kshulu@main/" />
+    <title>New tab</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(90deg, #d3c2d6 0%, #715a99 25%, #232165 60%, #642759 100%);
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            flex-direction: column;
+        }
+
+        #loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 25px; 
+        }
+
+        #loading-icon {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        #loading-bar {
+            width: 500px;
+            max-width: 85vw;
+            height: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4); 
+            background-color: transparent;
+            position: relative;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        #loading-bar-fill {
+            height: 100%;
+            width: 0%; 
+            background-color: rgba(255, 255, 255, 0.6); 
+            transition: width 0.1s linear;
+        }
+
+        #unity-canvas { 
+            width: 100vw; 
+            height: 100vh; 
+            display: none; 
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <script>
+        // idk
+        window.InitAudio = function() { console.log("Áudio liberado"); };
+        window.AudioMute = function() { console.log("Áudio mutado"); };
+        window.SaveCloud = function() { return Promise.resolve(); };
+        window.SaveProgress = function() { return Promise.resolve(); };
+        window.cloudSaves = { get: function() { return Promise.resolve({}); }, set: function() { return Promise.resolve({}); } };
+        
+        window.environmentData = { appId: "376014", language: "en", domain: "yandex.ru", payload: null };
+        
+        // HACK: 
+        window.RewardedShow = function() {
+            console.log("BlockedAd");
+            
+            if(window.unityInstance) {
+                window.unityInstance.SendMessage('YandexGame', 'RewardGive', 1);
+            }
+        };
+        
+        window.YG = {
+            YandexGame: {
+                SaveProgress: window.SaveProgress,
+                _SaveProgress: window.SaveProgress,
+                SaveCloud: window.SaveCloud,
+                SaveYG: window.SaveCloud,
+                RewardedShow: window.RewardedShow
+            }
+        };
+        window.YaGames = window.YG;
+    </script>
+
+    <div id="loading-container">
+        <img id="loading-icon" src="logo.png" alt="Icon">
+        <div id="loading-bar">
+            <div id="loading-bar-fill"></div>
+        </div>
+    </div>
+
+    <canvas id="unity-canvas"></canvas>
+
+    <script src="Build/Barri.loader.js"></script>
+    <script>
+        const barraPreenchimento = document.querySelector("#loading-bar-fill");
+        const telaCarregamento = document.querySelector("#loading-container");
+        const canvasUnity = document.querySelector("#unity-canvas");
+
+        // Baixa dinamicamente todas as partes armazenadas no Kshulu@main
+        async function carregarWasmDinamico() {
+            const baseUrl = "https://cdn.jsdelivr.net/gh/Usonul/Kshulu@main/Build/";
+            const buffers = [];
+            let i = 0;
+
+            while (true) {
+                const sufixo = String(i).padStart(2, '0');
+                const urlPart = `${baseUrl}Barri.wasm.${sufixo}.part`;
+
+                try {
+                    const resposta = await fetch(urlPart);
+                    
+                    if (!resposta.ok) {
+                        break; 
+                    }
+
+                    const buf = await resposta.arrayBuffer();
+                    buffers.push(buf);
+                    i++;
+                } catch (e) {
+                    break;
+                }
+            }
+
+            if (buffers.length === 0) {
+                throw new Error("Nenhum arquivo de build (.part) foi encontrado no repositório Kshulu.");
+            }
+            
+            const blobCompleto = new Blob(buffers, { type: "application/wasm" });
+            return URL.createObjectURL(blobCompleto);
+        }
+
+        carregarWasmDinamico().then((wasmUrl) => {
+            createUnityInstance(canvasUnity, {
+                dataUrl: "Build/Barri.data",
+                frameworkUrl: "Build/Barri.framework.js",
+                codeUrl: wasmUrl 
+            }, (progress) => {
+                barraPreenchimento.style.width = (100 * progress) + "%";
+            }).then((instance) => {
+                window.unityInstance = instance;
+                telaCarregamento.style.display = 'none';
+                canvasUnity.style.display = 'block';
+            }).catch((err) => {
+                alert("Erro ao inicializar Unity: " + err);
+            });
+        }).catch((err) => {
+            alert("Erro ao baixar partes do arquivo WASM: " + err.message);
+        });
+    </script>
+
+<div id="tampa-botao-dinamica" style="position: fixed; background: transparent; z-index: 99999; pointer-events: auto;"></div>
+<script>
+function travarTampa() {
+    const canvas = document.querySelector('canvas') || document.getElementById('unity-canvas');
+    const tampa = document.getElementById('heatmap-botao-dinamica') || document.getElementById('tampa-botao-dinamica');
+    if (!canvas || !tampa) return;
+
+    const r = canvas.getBoundingClientRect();
+
+    tampa.style.left = (r.left + (r.width * 0.0492)) + 'px';
+    tampa.style.top = (r.top + (r.height * 0.0247)) + 'px';
+    tampa.style.width = (r.width * 0.1055) + 'px';
+    tampa.style.height = (r.height * 0.0753) + 'px';
+}
+window.addEventListener('resize', travarTampa);
+window.addEventListener('load', () => setTimeout(travarTampa, 1000));
+
+setInterval(travarTampa, 200);
+</script>
+
+<div id="overlay" style="
+  position:fixed;
+  top:0; left:0;
+  width:100vw; height:100vh;
+  background:transparent;
+  z-index:9999;
+  cursor:pointer;
+"></div>
+
+<script>
+  const overlay = document.getElementById("overlay");
+
+  function enterFullscreen() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) elem.requestFullscreen();
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+    else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+  }
+
+  function lockScreenToLandscape() {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape')
+        .then(() => {
+          console.log("sucess");
+        })
+        .catch((err) => {
+          console.error("Error", err);
+        });
+    } else {
+      console.warn("sorry i cant put fullscreen here.");
+    }
+  }
+
+  overlay.addEventListener("click", () => {
+    overlay.style.display = "none";
+    enterFullscreen();
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    if (document.fullscreenElement) {
+      lockScreenToLandscape(); 
+    } else {
+      overlay.style.display = "block";
+    }
+  });
+
+  document.addEventListener("fullscreenerror", (event) => {
+    console.error("Error trying put fullscreen", event.message);
+  });
+</script>
+
+</body>
+</html>
