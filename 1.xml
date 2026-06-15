@@ -1,9 +1,13 @@
+<Module>
+    <ModulePrefs title="classroom" />
+    <Content type="html">
+        <![CDATA[
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <base href="https://cdn.jsdelivr.net/gh/Usonul/Kshulu@main/" />
+    <base href="https://cdn.jsdelivr.net/gh/Usonul/Ksluhu@a96a0fe/" />
     <title>New tab</title>
     <style>
         body { 
@@ -16,6 +20,7 @@
             height: 100vh; 
             overflow: hidden; 
             flex-direction: column;
+            font-family: sans-serif;
         }
 
         #loading-container {
@@ -59,11 +64,42 @@
             top: 0;
             left: 0;
         }
+
+        /* Ajuste do Overlay para centralizar os textos informativos na tela inteira */
+        #overlay {
+            position: fixed;
+            top: 0; 
+            left: 0;
+            width: 100vw; 
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7); /* Fundo escurecido suave para dar foco */
+            z-index: 9999;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #overlay h2 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            max-width: 90%;
+        }
+
+        #overlay p {
+            margin: 0;
+            font-size: 16px;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
     <script>
-        // idk
         window.InitAudio = function() { console.log("Áudio liberado"); };
         window.AudioMute = function() { console.log("Áudio mutado"); };
         window.SaveCloud = function() { return Promise.resolve(); };
@@ -72,10 +108,8 @@
         
         window.environmentData = { appId: "376014", language: "en", domain: "yandex.ru", payload: null };
         
-        // HACK: 
         window.RewardedShow = function() {
             console.log("BlockedAd");
-            
             if(window.unityInstance) {
                 window.unityInstance.SendMessage('YandexGame', 'RewardGive', 1);
             }
@@ -108,59 +142,69 @@
         const telaCarregamento = document.querySelector("#loading-container");
         const canvasUnity = document.querySelector("#unity-canvas");
 
-        // Baixa dinamicamente todas as partes armazenadas no Kshulu@main
-        async function carregarWasmDinamico() {
-            const baseUrl = "https://cdn.jsdelivr.net/gh/Usonul/Kshulu@main/Build/";
-            const buffers = [];
-            let i = 0;
-
-            while (true) {
-                const sufixo = String(i).padStart(2, '0');
-                const urlPart = `${baseUrl}Barri.wasm.${sufixo}.part`;
-
-                try {
-                    const resposta = await fetch(urlPart);
-                    
-                    if (!resposta.ok) {
-                        break; 
-                    }
-
-                    const buf = await resposta.arrayBuffer();
-                    buffers.push(buf);
-                    i++;
-                } catch (e) {
-                    break;
+        // Função genérica auxiliar para baixar e remontar arquivos em paralelo
+        async function baixarEUnificarArquivos(urls, tipoConteudo) {
+            const promessas = urls.map(url => fetch(url).then(resposta => {
+                if (!resposta.ok) {
+                    throw new Error(`Falha ao baixar fragmento: ${url}`);
                 }
-            }
+                return resposta.arrayBuffer();
+            }));
 
-            if (buffers.length === 0) {
-                throw new Error("Nenhum arquivo de build (.part) foi encontrado no repositório Kshulu.");
-            }
-            
-            const blobCompleto = new Blob(buffers, { type: "application/wasm" });
+            const buffers = await Promise.all(promessas);
+            const blobCompleto = new Blob(buffers, { type: tipoConteudo });
             return URL.createObjectURL(blobCompleto);
         }
 
-        carregarWasmDinamico().then((wasmUrl) => {
-            createUnityInstance(canvasUnity, {
-                dataUrl: "Build/Barri.data",
-                frameworkUrl: "Build/Barri.framework.js",
-                codeUrl: wasmUrl 
-            }, (progress) => {
-                barraPreenchimento.style.width = (100 * progress) + "%";
-            }).then((instance) => {
-                window.unityInstance = instance;
-                telaCarregamento.style.display = 'none';
-                canvasUnity.style.display = 'block';
-            }).catch((err) => {
-                alert("Erro ao inicializar Unity: " + err);
-            });
-        }).catch((err) => {
-            alert("Erro ao baixar partes do arquivo WASM: " + err.message);
-        });
+        async function iniciarJogoUnity() {
+            // Links exatos fornecidos para as partes do WebAssembly
+            const urlsWasm = [
+                "https://cdn.jsdelivr.net/gh/Usonul/Fg@8bc35ca/Barri.wasm.00.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/Huluks@90b9a21/Barri.wasm.01.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/kshuli@bc8a6f8/Barri.wasm.02.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/kshuli@bc8a6f8/Barri.wasm.03.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/kshuli@bc8a6f8/Barri.wasm.04.part"
+            ];
+
+            // Links exatos fornecidos para as partes do arquivo de dados (.data)
+            const urlsData = [
+                "https://cdn.jsdelivr.net/gh/Usonul/Ksluhu@a96a0fe/Build/Barri.data.00.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/Ksluhu@a96a0fe/Build/Barri.data.01.part",
+                "https://cdn.jsdelivr.net/gh/Usonul/Ksluhu@a96a0fe/Build/Barri.data.02.part"
+            ];
+
+            try {
+                // Baixa o WASM e o DATA juntos em segundo plano
+                const [wasmBlobUrl, dataBlobUrl] = await Promise.all([
+                    baixarEUnificarArquivos(urlsWasm, "application/wasm"),
+                    baixarEUnificarArquivos(urlsData, "application/octet-stream")
+                ]);
+
+                // Inicializa a instância da Unity com os arquivos decodificados na memória
+                createUnityInstance(canvasUnity, {
+                    dataUrl: dataBlobUrl,
+                    frameworkUrl: "Build/Barri.framework.js",
+                    codeUrl: wasmBlobUrl 
+                }, (progress) => {
+                    barraPreenchimento.style.width = (100 * progress) + "%";
+                }).then((instance) => {
+                    window.unityInstance = instance;
+                    telaCarregamento.style.display = 'none';
+                    canvasUnity.style.display = 'block';
+                }).catch((err) => {
+                    alert("Erro ao inicializar motor da Unity: " + err);
+                });
+
+            } catch (err) {
+                alert("Erro ao processar downloads dos repositórios: " + err.message);
+            }
+        }
+
+        // Dá a largada no carregamento
+        iniciarJogoUnity();
     </script>
 
-<div id="tampa-botao-dinamica" style="position: fixed; background: transparent; z-index: 99999; pointer-events: auto;"></div>
+<div id="tampa-botao-dinamica" style="position: fixed; background: transparent; z-index: 99998; pointer-events: auto;"></div>
 <script>
 function travarTampa() {
     const canvas = document.querySelector('canvas') || document.getElementById('unity-canvas');
@@ -176,18 +220,13 @@ function travarTampa() {
 }
 window.addEventListener('resize', travarTampa);
 window.addEventListener('load', () => setTimeout(travarTampa, 1000));
-
 setInterval(travarTampa, 200);
 </script>
 
-<div id="overlay" style="
-  position:fixed;
-  top:0; left:0;
-  width:100vw; height:100vh;
-  background:transparent;
-  z-index:9999;
-  cursor:pointer;
-"></div>
+<div id="overlay">
+    <h2>Clique em qualquer lugar para iniciar o jogo em tela cheia</h2>
+    <p>(Toque para começar)</p>
+</div>
 
 <script>
   const overlay = document.getElementById("overlay");
@@ -208,8 +247,6 @@ setInterval(travarTampa, 200);
         .catch((err) => {
           console.error("Error", err);
         });
-    } else {
-      console.warn("sorry i cant put fullscreen here.");
     }
   }
 
@@ -222,7 +259,7 @@ setInterval(travarTampa, 200);
     if (document.fullscreenElement) {
       lockScreenToLandscape(); 
     } else {
-      overlay.style.display = "block";
+      overlay.style.display = "flex";
     }
   });
 
@@ -230,6 +267,8 @@ setInterval(travarTampa, 200);
     console.error("Error trying put fullscreen", event.message);
   });
 </script>
-
 </body>
 </html>
+        ]]>
+    </Content>
+</Module>
